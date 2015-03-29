@@ -38,14 +38,13 @@ class VolumeManager(object):
 
         return self.client.volumes.findall(display_name=volume_name)
 
-    def attach_volume(self, volume_name_or_id, server_name_or_id,
-                      mountpoint):
+    def attach_volume(self, volume_name_or_id, server_name_or_id):
         """Attaches volume to instance."""
 
         server = self._find_resource('servers', server_name_or_id)
         volume = self._find_resource('volumes', volume_name_or_id)
         return self.client.volumes.create_server_volume(
-            server.id, volume.id, mountpoint)
+            server.id, volume.id, None)
 
     def detach_volume(self, volume_name_or_id, server_name_or_id):
         """Detaches volume."""
@@ -78,7 +77,8 @@ class VolumeManager(object):
         cmd = 'ssh -i {0} {1}@{2} {3}'.format(
             path_to_key, user, floating_ip, format_cmd
         )
-        os.system(cmd)
+        if os.system(cmd):
+            raise Exception("Failed to format device.")
 
     @staticmethod
     def _find_floating_ip(server):
