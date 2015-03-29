@@ -19,12 +19,12 @@ class VolumeManager(object):
     def get_volume(self, volume_id):
         """Creates volume."""
 
-        return self.client.volumes.get(id)
+        return self.client.volumes.get(volume_id)
 
     def create_volume(self, size, name=None, description=None):
         """Creates volume."""
 
-        self.client.volumes.create(
+        return self.client.volumes.create(
             size, display_name=name, display_description=description
         )
 
@@ -38,7 +38,7 @@ class VolumeManager(object):
 
         return self.client.volumes.findall(display_name=volume_name)
 
-    def attach_volume(self, server_name_or_id, volume_name_or_id,
+    def attach_volume(self, volume_name_or_id, server_name_or_id,
                       mountpoint):
         """Attaches volume to instance."""
 
@@ -47,7 +47,7 @@ class VolumeManager(object):
         return self.client.volumes.create_server_volume(
             server.id, volume.id, mountpoint)
 
-    def detach_volume(self, server_name_or_id, volume_name_or_id):
+    def detach_volume(self, volume_name_or_id, server_name_or_id):
         """Detaches volume."""
 
         server = self._find_resource('servers', server_name_or_id)
@@ -55,7 +55,7 @@ class VolumeManager(object):
         return self.client.volumes.delete_server_volume(
             server.id, volume.id)
 
-    def format_volume(self, server_name_or_id, volume_name_or_id,
+    def format_volume(self, volume_name_or_id, server_name_or_id,
                       user, path_to_key, floating_ip=None, filesystem='ext4'):
         """Formats volume attached to given instance.
 
