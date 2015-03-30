@@ -12,6 +12,28 @@ def _ssh_exec(path_to_key, user, ip, cmd):
     return os.system(cmd)
 
 
+def _untranslate_volume(vol):
+    """Maps keys for volumes summary view."""
+
+    d = {}
+    d['id'] = vol.id
+    d['status'] = vol.status
+    d['size'] = vol.size
+    d['created_at'] = vol.created_at
+    d['attach_time'] = ""
+    d['mountpoint'] = ""
+    if vol.attachments:
+        att = vol.attachments[0]
+        d['attach_status'] = 'attached'
+        d['server_id'] = att['server_id']
+        d['mountpoint'] = att['device']
+    else:
+        d['attach_status'] = 'detached'
+    d['name'] = vol.display_name
+    d['description'] = vol.display_description
+    return d
+
+
 class VolumeManager(object):
 
     def __init__(self, username, password, tenant_name, auth_url):
@@ -25,16 +47,16 @@ class VolumeManager(object):
             getattr(self.client, resource), name_or_id)
 
     def get_volume(self, volume_id):
-        """Creates volume."""
+        """Gets volume."""
 
-        return self.client.volumes.get(volume_id)
+        return _untranslate_volume(self.client.volumes.get(volume_id))
 
     def create_volume(self, size, name=None, description=None):
         """Creates volume."""
 
-        return self.client.volumes.create(
+        return _untranslate_volume(self.client.volumes.create(
             size, display_name=name, display_description=description
-        )
+        ))
 
     def delete_volume(self, volume_name_or_id):
         """Deletes volume by its name or id."""
@@ -44,15 +66,16 @@ class VolumeManager(object):
     def lookup_by_name(self, volume_name):
         """Returns a list of volumes that have appropriate name."""
 
-        return self.client.volumes.findall(display_name=volume_name)
+        return [_untranslate_volume(volume) for volume in
+                self.client.volumes.findall(display_name=volume_name)]
 
     def attach_volume(self, volume_name_or_id, server_name_or_id):
         """Attaches volume to instance."""
 
         server = self._find_resource('servers', server_name_or_id)
         volume = self._find_resource('volumes', volume_name_or_id)
-        return self.client.volumes.create_server_volume(
-            server.id, volume.id, None)
+        return _untranslate_volume(self.client.volumes.create_server_volume(
+            server.id, volume.id, None))
 
     def detach_volume(self, volume_name_or_id, server_name_or_id):
         """Detaches volume."""
