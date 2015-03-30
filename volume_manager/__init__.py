@@ -12,7 +12,7 @@ def _ssh_exec(path_to_key, user, ip, cmd):
     return os.system(cmd)
 
 
-def _untranslate_volume(vol):
+def _translate_volume(vol):
     """Maps keys for volumes summary view."""
 
     d = {}
@@ -35,6 +35,26 @@ def _untranslate_volume(vol):
 
 
 class VolumeManager(object):
+    """Volume manager for Cinder volumes manipulating.
+
+    :param string username: Username for authentication.
+    :param string password: Password for authentication.
+    :param string tenant_name: Tenant name.
+    :param string auth_url: Keystone service endpoint for authorization.
+
+    Example::
+
+        >>> import volume_manager
+        >>> vol_mgr = volume_manager.VolumeManager(
+        >>>     username=USER,
+        >>>     password=PASS,
+        >>>     tenant_name=TENANT_NAME,
+        >>>     auth_url=KEYSTONE_URL
+        >>> )
+
+        >>> volume = vol_mgr.get_volume(VOLUME_NAME_OR_ID)
+    ...
+    """
 
     def __init__(self, username, password, tenant_name, auth_url):
         self.client = nova_client.Client(
@@ -46,38 +66,80 @@ class VolumeManager(object):
             getattr(self.client, resource), name_or_id)
 
     def get_volume(self, volume_id):
-        """Gets volume."""
+        """Gets volume by id.
 
-        return _untranslate_volume(self.client.volumes.get(volume_id))
+        :param string volume_id: UUID of Cinder Volume.
+
+        :returns: Dict that contains volume information.
+
+        :raises: NotFound
+        """
+
+        return _translate_volume(self.client.volumes.get(volume_id))
 
     def create_volume(self, size, name=None, description=None):
-        """Creates volume."""
+        """Creates volume.
 
-        return _untranslate_volume(self.client.volumes.create(
+        :param integer size: Size of volume in GB.
+        :param string name: Name of volume.
+        :param string description: Description of volume.
+
+        :returns: Dict that contains volume information.
+        """
+
+        return _translate_volume(self.client.volumes.create(
             size, display_name=name, display_description=description
         ))
 
     def delete_volume(self, volume_name_or_id):
-        """Deletes volume by its name or id."""
+        """Deletes volume by its name or id.
+
+        :param string volume_name_or_id: UUID or name of Cinder Volume.
+
+        :returns: None
+
+        :raises: NotFound, NoUniqueMatch
+        """
 
         return self._find_resource('volumes', volume_name_or_id).delete()
 
     def lookup_by_name(self, volume_name):
-        """Returns a list of volumes that have appropriate name."""
+        """Returns a list of volumes that have appropriate name.
 
-        return [_untranslate_volume(volume) for volume in
+        :param string volume_name: Name of Cinder Volume.
+
+        :returns: List of dicts that contain volumes information.
+        """
+
+        return [_translate_volume(volume) for volume in
                 self.client.volumes.findall(display_name=volume_name)]
 
     def attach_volume(self, volume_name_or_id, server_name_or_id):
-        """Attaches volume to instance."""
+        """Attaches volume to instance.
+
+        :param string volume_name_or_id: Name or UUID of Cinder Volume.
+        :param string server_name_or_id: Name or UUID of Nova Instance.
+
+        :returns: Dict that contains volume information.
+
+        :raises: NotFound, NoUniqueMatch, BadRequest
+        """
 
         server = self._find_resource('servers', server_name_or_id)
         volume = self._find_resource('volumes', volume_name_or_id)
-        return _untranslate_volume(self.client.volumes.create_server_volume(
+        return _translate_volume(self.client.volumes.create_server_volume(
             server.id, volume.id, None))
 
     def detach_volume(self, volume_name_or_id, server_name_or_id):
-        """Detaches volume."""
+        """Detaches volume.
+
+        :param string volume_name_or_id: Name or UUID of Cinder Volume.
+        :param string server_name_or_id: Name or UUID of Nova Instance.
+
+        :returns: Dict that contains volume information.
+
+        :raises: NotFound, NoUniqueMatch, BadRequest
+        """
 
         server = self._find_resource('servers', server_name_or_id)
         volume = self._find_resource('volumes', volume_name_or_id)
@@ -89,6 +151,17 @@ class VolumeManager(object):
         """Formats volume attached to given instance.
 
         Server must be accessible via floating ip.
+
+        :param string volume_name_or_id: Name or UUID of Cinder Volume.
+        :param string server_name_or_id: Name or UUID of Nova Instance.
+        :param string user: Name of server user.
+        :param string path_to_key: Path to key for ssh access.
+        :param string floating_ip: Server floating_ip.
+        :param string filesystem: Filesystem to format volume.
+
+        :returns: None
+
+        :raises: NotFound, NoUniqueMatch, BadRequest, Exception
         """
 
         server = self._find_resource('servers', server_name_or_id)
