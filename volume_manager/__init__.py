@@ -37,7 +37,6 @@ def _untranslate_volume(vol):
 class VolumeManager(object):
 
     def __init__(self, username, password, tenant_name, auth_url):
-        super(VolumeManager, self).__init__()
         self.client = nova_client.Client(
             username, password, tenant_name, auth_url)
         self.client.authenticate()

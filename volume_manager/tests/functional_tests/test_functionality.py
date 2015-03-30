@@ -43,8 +43,12 @@ functional_test_opts = [
 ]
 
 
-CONF.register_opts(identity_test_opts)
-CONF.register_opts(functional_test_opts)
+functional_tests = cfg.OptGroup(name='functional_tests',
+                                title='Functional tests group')
+
+CONF.register_group(functional_tests)
+CONF.register_opts(identity_test_opts, group=functional_tests)
+CONF.register_opts(functional_test_opts, group=functional_tests)
 
 
 VOLUME_STATUS_CREATING = 'creating'
@@ -61,11 +65,12 @@ class BaseVolumeManagerTestCase(testtools.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.cfg = CONF.functional_tests
         cls.manager = volume_manager.VolumeManager(
-            CONF.test_user,
-            CONF.password,
-            CONF.test_tenant,
-            CONF.auth_url
+            cls.cfg.test_user,
+            cls.cfg.password,
+            cls.cfg.test_tenant,
+            cls.cfg.auth_url
         )
 
     @classmethod
@@ -153,8 +158,10 @@ class VolumeManagerTestCase(BaseVolumeManagerTestCase):
 
     def test_attach_volume(self):
         volume = self._create_volume(1)
-        volume = self.manager.attach_volume(volume['id'], CONF.test_instance)
-        self.addCleanup(self._detach_volume, volume['id'], CONF.test_instance)
+        volume = self.manager.attach_volume(
+            volume['id'], self.cfg.test_instance)
+        self.addCleanup(
+            self._detach_volume, volume['id'], self.cfg.test_instance)
         self.assertEqual(VOLUME_STATUS_ATTACHING, volume['status'])
         self.assertTrue(
             self._wait_for_status(volume['id'], VOLUME_STATUS_ATTACHED)
@@ -162,9 +169,9 @@ class VolumeManagerTestCase(BaseVolumeManagerTestCase):
 
     def test_detach_volume(self):
         volume = self._create_volume(1)
-        volume = self._attach_volume(volume['id'], CONF.test_instance,
+        volume = self._attach_volume(volume['id'], self.cfg.test_instance,
                                      cleanup=False)
-        self.manager.detach_volume(volume['id'], CONF.test_instance)
+        self.manager.detach_volume(volume['id'], self.cfg.test_instance)
         volume = self.manager.get_volume(volume['id'])
         self.assertEqual(VOLUME_STATUS_DETACHING, volume['status'])
         self.assertTrue(
@@ -173,12 +180,12 @@ class VolumeManagerTestCase(BaseVolumeManagerTestCase):
 
     def test_format_volume(self):
         volume = self._create_volume(1)
-        volume = self._attach_volume(volume['id'], CONF.test_instance)
+        volume = self._attach_volume(volume['id'], self.cfg.test_instance)
         result = self.manager.format_volume(
             volume['id'],
-            CONF.test_instance,
-            CONF.instance_user,
-            CONF.path_to_key
+            self.cfg.test_instance,
+            self.cfg.instance_user,
+            self.cfg.path_to_key
         )
         self.assertIsNone(result)
 
