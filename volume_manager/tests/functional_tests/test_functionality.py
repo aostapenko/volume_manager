@@ -57,7 +57,7 @@ VOLUME_STATUS_ERROR = 'error'
 VOLUME_STATUS_ERROR_DELETING = 'error_deleting'
 
 
-class VolumeManagerTestCase(testtools.TestCase):
+class BaseVolumeManagerTestCase(testtools.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -95,7 +95,7 @@ class VolumeManagerTestCase(testtools.TestCase):
         if cls._wait_for_deleted(volume_id):
             return True
         else:
-            raise Exception("Volume deleting timeout.")
+            raise Exception("Volume delete timeout.")
 
     @classmethod
     def _detach_volume(cls, volume_id, server_id):
@@ -103,7 +103,32 @@ class VolumeManagerTestCase(testtools.TestCase):
         if cls._wait_for_status(volume_id, VOLUME_STATUS_ACTIVE):
             return True
         else:
-            raise Exception("Volume detaching timeout.")
+            raise Exception("Volume detach timeout.")
+
+    def _create_volume(self, *args, **kwargs):
+        cleanup = kwargs.pop('cleanup', True)
+        volume = self.manager.create_volume(*args, **kwargs)
+        if cleanup:
+            self.addCleanup(self._delete_volume, volume.id)
+        if self._wait_for_status(volume.id, VOLUME_STATUS_ACTIVE):
+            volume = self.manager.get_volume(volume.id)
+            return volume
+        else:
+            raise Exception("Volume create timeout.")
+
+    def _attach_volume(self, volume_id, server_id, cleanup=True):
+        volume = self.manager.attach_volume(volume_id, server_id)
+        if self._wait_for_status(volume.id, VOLUME_STATUS_ATTACHED):
+            if cleanup:
+                self.addCleanup(self._detach_volume, volume_id,
+                                server_id)
+            volume = self.manager.get_volume(volume.id)
+            return volume
+        else:
+            raise Exception("Volume attach timeout.")
+
+
+class VolumeManagerTestCase(BaseVolumeManagerTestCase):
 
     def test_create_volume(self):
         name = 'test_volume'
@@ -118,9 +143,7 @@ class VolumeManagerTestCase(testtools.TestCase):
         self.assertTrue(self._wait_for_status(volume.id, VOLUME_STATUS_ACTIVE))
 
     def test_delete_volume(self):
-        volume = self.manager.create_volume(1)
-        self.addCleanup(self._delete_volume, volume.id)
-        self.assertTrue(self._wait_for_status(volume.id, VOLUME_STATUS_ACTIVE))
+        volume = self._create_volume(1)
         self._cleanups.pop()
         self.manager.delete_volume(volume.id)
         volume = self.manager.get_volume(volume.id)
@@ -128,9 +151,7 @@ class VolumeManagerTestCase(testtools.TestCase):
         self.assertTrue(self._wait_for_deleted(volume.id))
 
     def test_attach_volume(self):
-        volume = self.manager.create_volume(1)
-        self.addCleanup(self._delete_volume, volume.id)
-        self.assertTrue(self._wait_for_status(volume.id, VOLUME_STATUS_ACTIVE))
+        volume = self._create_volume(1)
         volume = self.manager.attach_volume(volume.id, CONF.test_instance)
         self.addCleanup(self._detach_volume, volume.id, CONF.test_instance)
         self.assertEqual(VOLUME_STATUS_ATTACHING, volume.status)
@@ -139,11 +160,9 @@ class VolumeManagerTestCase(testtools.TestCase):
         )
 
     def test_detach_volume(self):
-        volume = self.manager.create_volume(1)
-        self.addCleanup(self._delete_volume, volume.id)
-        self.assertTrue(self._wait_for_status(volume.id, VOLUME_STATUS_ACTIVE))
-        volume = self.manager.attach_volume(volume.id, CONF.test_instance)
-        self._wait_for_status(volume.id, VOLUME_STATUS_ATTACHED)
+        volume = self._create_volume(1)
+        volume = self._attach_volume(volume.id, CONF.test_instance,
+                                     cleanup=False)
         self.manager.detach_volume(volume.id, CONF.test_instance)
         volume = self.manager.get_volume(volume.id)
         self.assertEqual(VOLUME_STATUS_DETACHING, volume.status)
@@ -152,15 +171,15 @@ class VolumeManagerTestCase(testtools.TestCase):
         )
 
     def test_format_volume(self):
-        volume = self.manager.create_volume(1)
-        self.addCleanup(self._delete_volume, volume.id)
-        self.assertTrue(self._wait_for_status(volume.id, VOLUME_STATUS_ACTIVE))
-        volume = self.manager.attach_volume(volume.id, CONF.test_instance)
-        self.addCleanup(self._detach_volume, volume.id, CONF.test_instance)
-        self.assertTrue(self._wait_for_status(volume.id,
-                                              VOLUME_STATUS_ATTACHED))
-        self.manager.format_volume(volume.id, CONF.test_instance,
-                                   CONF.instance_user, CONF.path_to_key)
+        volume = self._create_volume(1)
+        volume = self._attach_volume(volume.id, CONF.test_instance)
+        result = self.manager.format_volume(
+            volume.id,
+            CONF.test_instance,
+            CONF.instance_user,
+            CONF.path_to_key
+        )
+        self.assertIsNone(result)
 
 
 def call_until_true(func, duration, sleep_for):
