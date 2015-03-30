@@ -121,7 +121,7 @@ class VolumeManagerTestCase(testtools.TestCase):
         volume = self.manager.create_volume(1)
         self.addCleanup(self._delete_volume, volume.id)
         self.assertTrue(self._wait_for_status(volume.id, VOLUME_STATUS_ACTIVE))
-        self._cleanups.remove(-1)
+        self._cleanups.pop()
         self.manager.delete_volume(volume.id)
         volume = self.manager.get_volume(volume.id)
         self.assertEqual(VOLUME_STATUS_DELETING, volume.status)
@@ -160,7 +160,7 @@ class VolumeManagerTestCase(testtools.TestCase):
         self.assertTrue(self._wait_for_status(volume.id,
                                               VOLUME_STATUS_ATTACHED))
         self.manager.format_volume(volume.id, CONF.test_instance,
-                                   CONF.test_user, CONF.path_to_key)
+                                   CONF.instance_user, CONF.path_to_key)
 
 
 def call_until_true(func, duration, sleep_for):

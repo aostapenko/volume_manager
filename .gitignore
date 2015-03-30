@@ -1,0 +1,8 @@
+*.pyc
+.venv
+*~
+.testrepository
+.tox
+.venv
+*py*.egg
+volume_manager.egg-info

@@ -4,6 +4,14 @@ from novaclient import utils as novaclient_utils
 from novaclient.v2 import client as nova_client
 
 
+def _ssh_exec(path_to_key, user, ip, cmd):
+    opts = '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+    cmd = 'ssh {0} -i {1} {2}@{3} {4}'.format(
+        opts, path_to_key, user, ip, cmd
+    )
+    return os.system(cmd)
+
+
 class VolumeManager(object):
 
     def __init__(self, username, password, tenant_name, auth_url):
@@ -74,10 +82,7 @@ class VolumeManager(object):
                 raise Exception(msg)
         device = attachments[0]['device']
         format_cmd = 'sudo mkfs.{0} {1}'.format(filesystem, device)
-        cmd = 'ssh -i {0} {1}@{2} {3}'.format(
-            path_to_key, user, floating_ip, format_cmd
-        )
-        if os.system(cmd):
+        if _ssh_exec(path_to_key, user, floating_ip, format_cmd):
             raise Exception("Failed to format device.")
 
     @staticmethod
