@@ -65,6 +65,7 @@ class BaseVolumeManagerTestCase(testtools.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        super(BaseVolumeManagerTestCase, cls).setUpClass()
         cls.cfg = CONF.functional_tests
         cls.manager = volume_manager.VolumeManager(
             cls.cfg.test_user,
